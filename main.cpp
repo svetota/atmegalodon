@@ -5,12 +5,6 @@
  * Author : svetota
  */ 
 
-#define ICR_MAX F_CPU/50  // ICR1(TOP) = fclk/(N*f) ; N-Делитель; f-Частота;  1000000/1/50 = 20000
-#define OCR_MIN ICR_MAX/20
-#define OCR_MAX ICR_MAX/10
-#define OCR_CENTER (ICR_MAX/4/10)*3
-
-
 #include <avr/io.h>
 #include <util/delay.h>
 #include <string.h>
@@ -127,7 +121,6 @@ class PortUart		// класс для работы RS232 на штатных по
 			intcoord = atoi(coord);		// переводим строку в целое число
 			return intcoord;
 		}
-		
 };
 
 class PortServo		//для работы с сервоприводами на пинах аппаратного ШИМ (PB1/OC1A, PB2/OC1B)
@@ -160,6 +153,11 @@ class PortServo		//для работы с сервоприводами на пи
 		}
 
 		private:
+	
+		const unsigned int ICR_MAX = (unsigned int) F_CPU/50;  // ICR1(TOP) = fclk/(N*f) ; N-Делитель; f-Частота;  1000000/1/50 = 20000
+		const unsigned int OCR_MIN = ICR_MAX/20;
+		const unsigned int OCR_MAX = ICR_MAX/10;
+		const unsigned int OCR_CENTER = (ICR_MAX/4/10)*3;
 
 		void AdcInit(void)	// Инициализация АЦП
 		{
