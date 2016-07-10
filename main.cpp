@@ -188,7 +188,7 @@ int main(void)
     {
 		/*выполняемые действия*/
 		Uart.Send(Led.StateText());
-		Uart.Send("\r\n\rCommand please\n\r");
+		Uart.Send("\r\n\rC o m m a n d   p l e a s e\n\r");
 		switch (Uart.Get())
 		{
 			case 0 : {Led.Off(); break;}
