@@ -12,48 +12,82 @@
 #include <stdlib.h>
 #include <math.h>
 
+class PortPinIO
+{
+	public:
+	typedef unsigned char pinnum_t;		// для хранения номера пина
+	PortPinIO(pinnum_t x)		// конструктор
+	{
+		this->pinnum = x;
+	}
+	protected:
+	pinnum_t pinnum;
+};
 
+class PortBPinOut : public PortPinIO		// для работы с пином порта B на выход
+{
+	public:
+	PortBPinOut(pinnum_t y)		// инициализация в конструкторе
+	:	PortPinIO(y)			// вызываем конструктор базового класса
+	{
+		DDRB |= (1 << pinnum);		// переключаем пин в режим выхода
+	}
+	unsigned char On(void)		// включалка
+	{
+		PORTB |= (1 << pinnum);		// подаём высокий уровень на пин
+		return 0;
+	}
+	unsigned char Off(void)		// выключалка
+	{
+		PORTB &= ~(1 << pinnum);		// подаём низкий уровень на пин
+		return 0;
+	}
+	unsigned char State(void)		// выдавалка информации о состоянии в виде целого (0/1)
+	{
+		/*!*/		return (PINB & (1 << pinnum));		// берем из регистра PINB
+	}
+};
 class PortLed		// общие методы для работы со светодиодами
 {
 	public:
-	virtual int State(void)		// выдавалка информации о состоянии в виде целого (0/1)
+	virtual unsigned char State(void)		// выдавалка информации о состоянии в виде целого (0/1)
 	{
 		return 2;		// заглушка для производных классов
 	}
-	const char* StateText(void)		// выдавалка информации о состоянии в виде строки
+	char* StateText(void)		// выдавалка информации о состоянии в виде строки
 	{
-		char message[20] = "LED is now ";
+		char* message = "LED is now ";
 		switch (this->State())
 		{
 			case 0 : {strcat(message, "OFF"); break;}
 			case 1 : {strcat(message, "ON"); break;}
 			case 2 : {strcat(message, "undefined"); break;}
 		}
-		const char* endmessage = message;		// не смог иначе вывернуться из ворнингов с char*
-		return endmessage;
+		return message;
 	}
 };
-class PortLedB0 : public PortLed		// для работы со светодиодом на пине 0 порта B
+class PortBLed : public PortBPinOut, public PortLed		// для работы со светодиодом на пине порта B
 {
 	public:
-		PortLedB0(void)		// инициализация в конструкторе
+		PortBLed(pinnum_t z)		// инициализация в конструкторе
+		:	PortBPinOut(z){}
+		
+		unsigned char On(void)		// включалка
 		{
-			DDRB |= (1 << 0);		// переключаем пин B0 в режим выхода
-		}
-		int On(void)		// включалка
-		{
-			PORTB |= (1 << 0);		// подаём высокий уровень на пин B0
+			PORTB |= (1 << x);		// подаём высокий уровень на пин
 			return 0;
 		}
-		int Off(void)		// выключалка
+		unsigned char Off(void)		// выключалка
 		{
-			PORTB &= ~(1 << 0);		// низкий уровень на пин B0
+			PORTB &= ~(1 << x);		// подаём низкий уровень на пин
 			return 0;
 		}
-		int State(void)		// выдавалка информации о состоянии в виде целого (0/1)
+		unsigned char State(void)		// выдавалка информации о состоянии в виде целого (0/1)
 		{
-/*!*/		return (PINB & (1 << 0));		// берем из регистра PINB! С НЕНУЛЕВОЙ НОГОЙ НЕ СРАБОТАЕТ, ПЕРЕДЕЛАТЬ!
+/*!*/		return (PINB & (1 << x));		// берем из регистра PINB
 		}
+	private:
+		pinnum_t x=1;		
 };
 
 class PortUart		// класс для работы RS232 на штатных портах RXD/TXD (PD0/PD1)
@@ -144,14 +178,14 @@ class PortServo		//для работы с сервоприводами на пи
 		}
 		void SetCoord(int coord)
 		{
-			OCR1A = round(OCR_MIN + coord * (OCR_MAX - OCR_MIN) / 1800);
+			OCR1A = OCR_CENTER;
 			OCR1B = round(OCR_MIN + coord * (OCR_MAX - OCR_MIN) / 1800);
 			
 		}
 
 		private:
 	
-		const unsigned int ICR_MAX = (unsigned int) F_CPU/50;  // ICR1(TOP) = fclk/(N*f) ; N-Делитель; f-Частота;  1000000/1/50 = 20000
+		const unsigned int ICR_MAX = (unsigned int) 8000000/50;  // ICR1(TOP) = fclk/(N*f) ; N-Делитель; f-Частота;  1000000/1/50 = 20000
 		const unsigned int OCR_MIN = ICR_MAX/20;
 		const unsigned int OCR_MAX = ICR_MAX/10;
 		const unsigned int OCR_CENTER = (ICR_MAX/4/10)*3;
@@ -175,20 +209,26 @@ class PortServo		//для работы с сервоприводами на пи
 
 int main(void)
 {
-	PortLedB0 Led;		//
-	PortUart Uart;		// подключаем интерфейсы
-	PortServo Servo(1); //
-	
-    while (1)		// главный цикл
+	PortBLed Led(3);		//
+	//PortUart Uart;		// подключаем интерфейсы
+	//PortServo Servo(0); //
+		
+	while (1)		// главный цикл
     {
 		/*выполняемые действия*/
-		Uart.Send(Led.StateText());
+		/*Uart.Send(Led.StateText());
 		Uart.Send("\r\n\rCommand please\n\r");
-		switch (Uart.Get())
+		int button = (PINB & (1 << 0)); if(button)button=1;
+		Uart.Send(button);Uart.Send("\r\n");
+		switch (button)
 		{
-			case 0 : {Led.Off(); break;}
-			case 1 : {Led.On(); break;}
+			case 0 : {Led.Off(); Uart.Send(Led.StateText()); break;}
+			case 1 : {Led.On(); Uart.Send(Led.StateText()); break;}
 		}
+		_delay_ms(1000);*/
+		
+		Led.On();
+		_delay_ms(500);
+		Led.Off();
 	}
-	
 }
